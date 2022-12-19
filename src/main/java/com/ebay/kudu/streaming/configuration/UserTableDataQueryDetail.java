@@ -25,4 +25,11 @@ public class UserTableDataQueryDetail implements Serializable {
     private static final long serialVersionUID = -5260450483244281444L;
     private List<String> projectedColumns = Lists.newArrayList();
     private List<UserTableDataQueryFilter> userTableDataQueryFilters = Lists.newArrayList();
+
+    /**
+     * Lower and upper bound keys for query in the incremental mode, the query range will be (lowerBoundKey, upperBoundKey).
+     * If lowerBoundKey or upperBoundKey is null, the value will be replaced with -inf and +inf.
+     */
+    private String lowerBoundKey;
+    private String upperBoundKey;
 }

@@ -30,6 +30,12 @@ import java.util.*;
 public class StreamingLocalEventsManager<T> implements Serializable {
     private String initialHWM;
 
+    /**
+     * The manager will be initialized with the user configured lowerKey and upperKey;
+     */
+    private String userConfiguredLowerKey;
+    private String userConfiguredUpperKey;
+
     private List<StreamingColumn> streamingColumns;
 
     private TreeSet<T> localEvents = new TreeSet<>(new EventComparator());
@@ -70,14 +76,14 @@ public class StreamingLocalEventsManager<T> implements Serializable {
         return newParts;
     }
 
-    private String buildEmptyStreamingKey() {
+    private String buildRangeKeyTemplate(String longTypeKey, String stringTypeKey) {
         StringBuffer key = new StringBuffer();
         for (int i = 0; i < streamingColumns.size(); i++) {
             StreamingColumn sc = streamingColumns.get(i);
             if (sc.getFieldType() == Long.class) {
-                key.append("-1");
+                key.append(longTypeKey);
             } else if (sc.getFieldType() == String.class) {
-                key.append("0");
+                key.append(stringTypeKey);
             }
             if (i < streamingColumns.size() - 1) {
                 key.append(STREAMING_KEY_DELIMITER);
@@ -86,9 +92,31 @@ public class StreamingLocalEventsManager<T> implements Serializable {
         return key.toString();
     }
 
-    public StreamingLocalEventsManager(List<StreamingColumn> streamingColumns) {
+    private String buildDefaultLowerStreamingKey() {
+        return buildRangeKeyTemplate(String.valueOf(Long.MIN_VALUE), "0");
+    }
+
+    private String buildDefaultUpperStreamingKey() {
+        return buildRangeKeyTemplate(String.valueOf(Long.MAX_VALUE), "z");
+    }
+
+    public StreamingLocalEventsManager(List<StreamingColumn> streamingColumns,
+                                       String userConfiguredLowerKey,
+                                       String userConfiguredUpperKey
+    ) {
         this.streamingColumns = streamingColumns;
-        this.initialHWM = buildEmptyStreamingKey();
+        if (userConfiguredLowerKey == null) {
+            this.userConfiguredLowerKey = buildDefaultLowerStreamingKey();
+        } else {
+            this.userConfiguredLowerKey = userConfiguredLowerKey;
+        }
+
+        if (userConfiguredUpperKey == null) {
+            this.userConfiguredUpperKey = buildDefaultUpperStreamingKey();
+        } else {
+            this.userConfiguredUpperKey = userConfiguredUpperKey;
+        }
+        this.initialHWM = this.userConfiguredLowerKey;
     }
 
     public void update(T row) throws Exception {
@@ -119,5 +147,9 @@ public class StreamingLocalEventsManager<T> implements Serializable {
     public void next() {
         initialHWM = getCurrentHWMStr();
         localEvents.clear();
+    }
+
+    public String[] getUserConfiguredUpperKey() {
+        return userConfiguredUpperKey.split(STREAMING_KEY_DELIMITER_RE);
     }
 }
