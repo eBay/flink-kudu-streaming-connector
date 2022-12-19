@@ -49,9 +49,9 @@ public class StreamingKeyOffsetManagerTest {
         row3.setAge(1);
 
         StreamingLocalEventsManager<UserType> streamingLocalEventsManager =
-                new StreamingLocalEventsManager<>(Arrays.asList(one, two));
+                new StreamingLocalEventsManager<>(Arrays.asList(one, two), null, null);
 
-        Assert.assertEquals("0|-1", streamingLocalEventsManager.getCurrentHWMStr());
+        Assert.assertEquals("0|" + Long.MIN_VALUE, streamingLocalEventsManager.getCurrentHWMStr());
 
         streamingLocalEventsManager.update(row);
         Assert.assertEquals("hello_world|1", streamingLocalEventsManager.getCurrentHWMStr());
@@ -68,5 +68,10 @@ public class StreamingKeyOffsetManagerTest {
 
         streamingLocalEventsManager.update(row3);
         Assert.assertEquals("hello_world2|1", streamingLocalEventsManager.getCurrentHWMStr());
+
+        String[] upperBoundKey = streamingLocalEventsManager.getUserConfiguredUpperKey();
+        Assert.assertEquals(2, upperBoundKey.length);
+        Assert.assertEquals("z", upperBoundKey[0]);
+        Assert.assertEquals(String.valueOf(Long.MAX_VALUE), upperBoundKey[1]);
     }
 }

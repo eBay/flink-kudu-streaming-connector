@@ -109,17 +109,27 @@ public class KuduStreamingSourceFunction<T> extends RichParallelSourceFunction<T
                     UserTableDataQueryDetail userTableDataQueryDetail = allUserTableDataQueryDetails.get(0);
 
                     if (kuduStreamingSourceConfiguration.getRunningMode() == KuduStreamingRunningMode.INCREMENTAL) {
-                        String[] streamingStartingKey = streamingKeyOffsetManager.getCurrentHWM();
+                        String[] streamingLowerKey = streamingKeyOffsetManager.getCurrentHWM();
+                        String[] streamingUpperKey = streamingKeyOffsetManager.getUserConfiguredUpperKey();
                         List<StreamingColumn> streamingColumns = rowResultConvertor.getUserTableDataTypeDetail().getStreamingCols();
+                        // Build the lower and upper bound
                         for (int i = 0; i < streamingColumns.size(); i++) {
-                            LOGGER.info("Streaming key={}", Arrays.toString(streamingStartingKey));
+                            LOGGER.info("Streaming key={}", Arrays.toString(streamingLowerKey));
                             StreamingColumn streamingColumn = streamingColumns.get(i);
-                            KuduFilterInfo filterInfo = KuduFilterInfo.Builder
+                            KuduFilterInfo lowerFilterInfo = KuduFilterInfo.Builder
                                     .create(streamingColumn.getColName()).filter(
                                             KuduFilterInfo.FilterType.GREATER,
-                                            streamingColumn.getFieldType() == Long.class ? Long.valueOf(streamingStartingKey[i]) : streamingStartingKey[i])
+                                            streamingColumn.getFieldType() == Long.class ? Long.valueOf(streamingLowerKey[i]) : streamingLowerKey[i])
                                     .build();
-                            filterInfoList.add(filterInfo);
+
+                            KuduFilterInfo upperFilterInfo = KuduFilterInfo.Builder
+                                    .create(streamingColumn.getColName()).filter(
+                                            KuduFilterInfo.FilterType.LESS,
+                                            streamingColumn.getFieldType() == Long.class ? Long.valueOf(streamingUpperKey[i]) : streamingUpperKey[i])
+                                    .build();
+
+                            filterInfoList.add(lowerFilterInfo);
+                            filterInfoList.add(upperFilterInfo);
                         }
                     } else {
                         if (CollectionUtils.isNotEmpty(userTableDataQueryDetail.getUserTableDataQueryFilters())) {
@@ -221,7 +231,15 @@ public class KuduStreamingSourceFunction<T> extends RichParallelSourceFunction<T
         }
 
         if (streamingKeyOffsetManager == null) {
-            streamingKeyOffsetManager = new StreamingLocalEventsManager<>(rowResultConvertor.getUserTableDataTypeDetail().getStreamingCols());
+            String userConfiguredLowerKey =
+                    CollectionUtils.isNotEmpty(kuduStreamingSourceConfiguration.getUserTableDataQueryDetailList()) ?
+                            kuduStreamingSourceConfiguration.getUserTableDataQueryDetailList().get(0).getLowerBoundKey() : null;
+            String userConfiguredUpperKey =
+                    CollectionUtils.isNotEmpty(kuduStreamingSourceConfiguration.getUserTableDataQueryDetailList()) ?
+                            kuduStreamingSourceConfiguration.getUserTableDataQueryDetailList().get(0).getUpperBoundKey() : null;
+
+            streamingKeyOffsetManager = new StreamingLocalEventsManager<>(
+                    rowResultConvertor.getUserTableDataTypeDetail().getStreamingCols(), userConfiguredLowerKey, userConfiguredUpperKey);
         }
 
         if (kuduStreamingSourceConfiguration.getBatchRunningInterval() != null) {
@@ -285,7 +303,14 @@ public class KuduStreamingSourceFunction<T> extends RichParallelSourceFunction<T
             if (functionInitializationContext.isRestored()) {
                 rowResultConvertor =
                         new UserTableDataRowResultConvertor<>(kuduStreamingSourceConfiguration.getTargetKuduRowClz());
-                streamingKeyOffsetManager = new StreamingLocalEventsManager<>(rowResultConvertor.getUserTableDataTypeDetail().getStreamingCols());
+                String userConfiguredLowerKey =
+                        CollectionUtils.isNotEmpty(kuduStreamingSourceConfiguration.getUserTableDataQueryDetailList()) ?
+                                kuduStreamingSourceConfiguration.getUserTableDataQueryDetailList().get(0).getLowerBoundKey() : null;
+                String userConfiguredUpperKey =
+                        CollectionUtils.isNotEmpty(kuduStreamingSourceConfiguration.getUserTableDataQueryDetailList()) ?
+                                kuduStreamingSourceConfiguration.getUserTableDataQueryDetailList().get(0).getUpperBoundKey() : null;
+                streamingKeyOffsetManager = new StreamingLocalEventsManager<>(
+                        rowResultConvertor.getUserTableDataTypeDetail().getStreamingCols(), userConfiguredLowerKey, userConfiguredUpperKey);
 
                 for (LinkedMap state : snapshotOffsetStates.get()) {
                     LOGGER.info("RESTORE_STATE for subTask={}, with state={}", getRuntimeContext().getIndexOfThisSubtask(), state);
