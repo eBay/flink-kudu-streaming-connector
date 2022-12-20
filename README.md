@@ -121,5 +121,21 @@ public class User {
     private Integer age;
 }
 ```
+
+The streaming key will be leveraged as the cursor to read the data from the kudu table. After each record been read, the cursor will be updated with the stream key of that record so the table is able to be read increasingly. And the cursor will be maintained in the flink check point in case of any failures of the task manager. The user is also able to specify the lower and upper bound of the query before starting the job. Below is the sample code snippet:
+```java
+UserTableDataQueryDetail detail = new UserTableDataQueryDetail();
+detail.setProjectedColumns(Arrays.asList("created_time", "name"));
+
+UserTableDataQueryFilter filter = UserTableDataQueryFilter.builder()
+        .colName("created_time")
+        .filterOp(FilterOp.GREATER)
+        .build();
+
+detail.setUserTableDataQueryFilters(Arrays.asList(filter));
+detail.setLowerBoundKey("1671429154104");
+detail.setUpperBoundKey("1671429156104");
+```
+
 ## License
 [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)
