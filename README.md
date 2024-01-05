@@ -136,6 +136,8 @@ detail.setUserTableDataQueryFilters(Arrays.asList(filter));
 detail.setLowerBoundKey("1671429154104");
 detail.setUpperBoundKey("1671429156104");
 ```
+## More details
+This work has been introduced in Apache COC Asia 2023, see presentation [here](docs/apachecon2023_streaming_kudu.pdf)
 
 ## License
 [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)
